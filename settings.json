@@ -1,6 +1,43 @@
 {
-    "user_id": "",
-    "password": "",
-    "default_room_alias": "",
-    "server": "https://matrix.org"
+	"matrix": {
+        "user_id": "",
+        "password": "",
+        "default_room_alias": "#matrix:matrix.org",
+        "predefined_rooms": [
+            ""
+        ],
+        "server": "https://matrix.org"
+	},
+    "ui": {
+        "flags": {
+            "enable-item-random-color": true
+        },
+        "colors": {
+            "window-color": [0.2, 0.3, 0.2, 0.9],
+            "title-color": {
+                "fg": [0, 0, 0, 1],
+                "bg": [0.8, 0, 0.8, 1]
+            },
+            "infobar-color": {
+                "fg": [0, 0, 0, 1],
+                "bg": [0.2, 0.4, 0.2, 1]
+            }
+        },
+        "fonts": {
+            "timeline": "./res/fonts/FreeMonoBoldOblique.ttf",
+            "infobar": "./res/fonts/RobotoCondensed-Bold.ttf",
+            "post-buffer": "./res/fonts/DroidSans.ttf"
+        },
+    	"screen-transition": {
+    		"transitions": [
+    			"NoTransition", "WipeTransition", "RiseInTransition",
+    			"FallOutTransition", "SwapTransition", "SlideTransition",
+            	"FadeTransition"
+    		],
+    		"direction": [
+    			"up", "down", "left", "right"
+    		]
+    	},
+        "key-modifier": ["shift", "alt", "ctrl"]
+    }
 }

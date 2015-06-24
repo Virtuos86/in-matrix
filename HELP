@@ -1,0 +1,35 @@
+Hi!
+
+###########
+
+<Commands>:
+
+	``/nick  <display_name>``       : change your display name
+	``/me <action>``                : send the action you are doing. /me will be replaced by your display name
+	``/join <room_alias>``          : join a room
+	``/leave <user_id>``            : leave current room
+	``/kick <user_id> [<reason>]``  : kick the user
+	``/ban <user_id> [<reason>] ``  : ban the user
+	``/unban <user_id>``            : unban the user
+	``/op <user_id> <power_level>`` : set user power level
+	``/deop <user_id>``             : reset user power level to the room default value
+
+	``!help`` : this help
+	``!clear``: clear timeline
+
+#####################
+
+<Keyboard shortcuts>:
+
+	"M" is "Modifier" (see first item in SETTINGS["ui"]["key-modifier"]). You are you. Let's go!
+	
+	M-1, M-2, ..., M-9 : switching to opened room №1, №2, ..., №9 or to last opened room
+	M-Tab       : autocompleting names of members
+	M-Backspace : standard behavior ;)
+	M-Enter     : sending message
+	M-n         : creating new screen
+	M-t         : put focus in title (if not focus in message buffer!)
+	M-i         : put focus in infobar (if not focus in message buffer!)
+	M-<         : switching to previous room (if not focus in message buffer!)
+	M->         : switching to next room (if not focus in message buffer!)
+	M-e         : switching to message buffer

@@ -1,0 +1,11 @@
+{
+	"Members:": "Участники:",
+	"[Public rooms]": "[Публичные комнаты]",
+	"Rooms:": "Комнаты:",
+	"Fail loading settings.": "Ошибка при загрузке настроек.",
+	"has joined": "присоединился",
+	"<this room hasn't any topic>": "<у этой комнаты нет описания>",
+	"Type here! Press <M><Enter> or <Enter><Enter> to send a message.": "Тапай сюда! Жми <M><Enter> или <Enter><Enter>, чтобы отправить сообщение.",
+	"has left": "вышел",
+	"Error decoding message!": "Ошибка перекодировки сообщения!"
+}

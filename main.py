@@ -11,19 +11,6 @@ __author__ = "Szia <@szia:matrix.org>"
 DEBUG = True
 ACTIVITYPORT = 3001
 SERVICEPORT = 3000
-
-def _(text):
-    #TODO
-    if isinstance(text, unicode):
-        return text
-    return text.decode('utf-8')
-
-def platform(predicate, true, false):
-    if kivy.platform == predicate:
-        return true
-    else:
-        return false
-
 APP_TITLE = u"In-Matrix (IM)"
 PATH_TO_HISTORY = u'./history'
 SETTINGS = {
@@ -64,6 +51,26 @@ FONTS = {
     'infobar'      :  './res/fonts/RobotoCondensed-Bold.ttf',
     'post-buffer'  :  './res/fonts/DroidSans.ttf',
 }
+DICTIONARY = {}
+
+
+# localization
+def _(text):
+    #TODO
+    if text not in DICTIONARY:
+        DICTIONARY[text] = text
+        json.dump(DICTIONARY, open('./lang/%s.json' % SETTINGS['ui']['language'][0], 'w'))
+    else:
+        text = DICTIONARY[text]
+    if not isinstance(text, unicode):
+        text = text.decode('utf-8')
+    return text
+
+def platform(predicate, true, false):
+    if kivy.platform == predicate:
+        return true
+    else:
+        return false
 
 def gen_index():
     i = 0
@@ -148,13 +155,15 @@ Worker = _Worker()
 Worker.handler.start()
 
 def load_settings():
-    global SETTINGS, FONTS
+    global SETTINGS, FONTS, DICTIONARY
     with open('settings.json') as f:
         s = json.load(f)
         try:
-            s["matrix"]["password"] = s["matrix"]["password"].decode('base64')
+            s['matrix']['password'] = s['matrix']['password'].decode('base64')
         except:
             pass
+    with open('./lang/%s.json' % s['ui']['language'][0]) as f:
+        DICTIONARY = json.load(f)
     SETTINGS = s
     FONTS = s['ui']['fonts']
     return SETTINGS
@@ -162,7 +171,7 @@ def load_settings():
 try:
     load_settings()
 except Exception, err:
-    open('post-mortem.log', 'w').write("Fail loading settings.")
+    open('post-mortem.log', 'w').write(_("Fail loading settings."))
 _Window.clearcolor = SETTINGS['ui']['colors']['window-color']
 _Window.set_icon('./res/img/icon.png')
 
@@ -253,8 +262,8 @@ def parse_msg(event):
     screen = [screen for screen in app.screens if not screen.special and screen.room.room_id == e['room_id']][0]
     if u'membership' in e:
         content = e['content']
-        update_timeline(screen.timeline, _("%s has %s.") % (
-            content[u'displayname'], {"leave": _("left"), "join": _("joined")}[content['membership']]
+        update_timeline(screen.timeline, "%s %s." % (
+            content[u'displayname'], {"leave": _("has left"), "join": _("has joined")}[content['membership']]
             )
         )
     #if (e["user_id"] == app.user_id or e["content"]["msgtype"] == "m.notice"):
@@ -594,26 +603,72 @@ class PublicRoomsList(Screen):
     def __init__(self, app, **kwargs):
         super(Screen, self).__init__(**kwargs)
         self.name = _(u"[Public rooms]")
-        self.root = root = ScrollView()
+        self.root = root = GridLayout(rows=3)
+        self.title = PopupLabel(
+            full_text_callback=lambda self: self.text,
+            text=self.name,
+            multiline=True,
+            bold=True,
+            background_color=SETTINGS['ui']['colors']['title-color']['bg'],
+            size_hint_y=platform('linux', 0.03, 0.1),
+            readonly=True,
+        )
+        root.add_widget(self.title)
+        self.infobar = PopupLabel(
+            full_text_callback=lambda self: self.text,
+            text=u". . .",
+            multiline=True,
+            size_hint_y=platform('linux', 0.03, 0.1),
+            background_color=SETTINGS['ui']['colors']['infobar-color']['bg'],
+            font_name=FONTS['infobar'],
+        )
+        root.add_widget(self.infobar)
+        scrollview = ScrollView()
+        root.add_widget(scrollview)
         self.timeline = timeline = GridLayout(cols=1, size_hint_y=None)
         timeline.bind(minimum_height=timeline.setter('height'))
-        root.add_widget(timeline)
+        scrollview.add_widget(timeline)
         try:
             rooms_list = app.client.api.public_rooms()['chunk']
             rooms_list.sort(key=lambda i: i[u'num_joined_members'], reverse=True)
             if DEBUG:
                 rooms_list = rooms_list[:50]
             for room in rooms_list:
-                update_timeline(timeline, "%s [%d member(s)]\n\n%s" % (
+                self.update_timeline("%s [%d member(s)]\n\n%s" % (
                     (room[u'name'] + " (" + room[u'aliases'][0] + ")") if room[u'name'] is not None else room[u'aliases'][0],
                     room[u'num_joined_members'],
                     room[u'topic'] or _("<this room hasn't any topic>")
-                    )
+                    ),
+                    room_alias=room[u'aliases'][0]
                 )
         except net.API.MatrixRequestError, err:
             print(err.message)
         self.add_widget(root)
 
+    def update_timeline(self, content=None, room_alias=None):
+        if content is None:
+            self.timeline.add_widget(Label(text="[b]. . .[/b]", markup=True, size_hint_y=None, height=20))
+        else:
+            room_item = TextInput(text=content,
+                size_hint_y=None,
+                font_name=FONTS['timeline'],
+                readonly=True,
+            )
+            room_item.background_color = choice(COLORS) if SETTINGS['ui']['flags']['enable-item-random-color'] else (1, 1, 1, 1)
+            room_item.foreground_color = [0, 0, 0, 1]
+            room_item.bind(focus=lambda this, value: self._item_click(this, value))
+            
+            room_item.size = (_Window.width, 
+                room_item.line_height * len(content.splitlines())
+                + room_item.line_spacing * (len(content.splitlines()) - 1)
+                + room_item.padding[1] + room_item.padding[3])
+            room_item.to_room = room_alias
+            self.timeline.add_widget(room_item)
+    @staticmethod
+    def _item_click(self, value):
+        print(`self.to_room`)
+        if value:
+            print(exec_cmd('/join', self.to_room))
 
 #####################
 class MatrixApp(App):
@@ -754,9 +809,10 @@ def global_keyboard_callback(key, scancode, codepoint, modifiers):
 
             # <M><1-9>: switch to room <№>
             elif key in (49,50,51,52,53,54,55,56,57):
-                def callback(dt):
-                    app.current = app.screens[min(key - 49, len(app.screens) - 1)].name
-                Clock.schedule_once(callback)
+                if not app.current_screen.textbuf.focus:
+                    def callback(dt):
+                        app.current = app.screens[min(key - 49, len(app.screens) - 1)].name
+                    Clock.schedule_once(callback)
 
             # <M><n>: create new window for joining new room
             elif key == 110:
@@ -764,12 +820,12 @@ def global_keyboard_callback(key, scancode, codepoint, modifiers):
 
             # <M><t>: put focus in title
             elif key == 116:
-                if not app.current_screen.textbuf.focus:
+                if (app.current != _("[Public rooms]")) and not app.current_screen.textbuf.focus:
                     app.current_screen.title.focus = True
 
             # <M><i>: put focus in infobar
             elif key == 105:
-                if not app.current_screen.textbuf.focus:
+                if (app.current != _("[Public rooms]")) and not app.current_screen.textbuf.focus:
                     app.current_screen.infobar.focus = True
 
             # <M><`<`>: switch to previous room
@@ -793,6 +849,10 @@ def global_keyboard_callback(key, scancode, codepoint, modifiers):
                     app.current_screen.textbuf.focus = True
                     textbuf.insert_text(' ')
                     textbuf.do_backspace()
+        if ['shift'] == modifiers:
+            if key == 32:
+                if app.current == _("[Public rooms]"):
+                    global_keyboard_callback(281, scancode, codepoint, [])
     elif key == 273:
         if app.current == _("[Public rooms]"):
             prlist = app.current_screen
@@ -825,6 +885,9 @@ def global_keyboard_callback(key, scancode, codepoint, modifiers):
             e.value = min(e.value + m, e.max)
             e.velocity = 0
             e.trigger_velocity_update()
+    elif key == 32:
+        if app.current == _("[Public rooms]"):
+            global_keyboard_callback(280, scancode, codepoint, [])
     return True
 _Window.on_keyboard = global_keyboard_callback
 

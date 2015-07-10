@@ -1,14 +1,17 @@
 {
 	"matrix": {
-        "user_id": "",
-        "password": "",
-        "default_room_alias": "#matrix:matrix.org",
+        "user_id": "szia",
+        "password": "I0AkIyNAJCNf\n",
+        "default_room_alias": "#7:matrix.org",
         "predefined_rooms": [
-            ""
+            "#lor:matrix.org"
         ],
         "server": "https://matrix.org"
 	},
     "ui": {
+        "language": [
+            "ru", "eng"
+        ],
         "flags": {
             "enable-item-random-color": true
         },

@@ -8,7 +8,7 @@ from __future__ import print_function
 from functools import partial
 
 __author__ = "Szia <@szia:matrix.org>"
-DEBUG = True
+DEBUG = False
 ACTIVITYPORT = 3001
 SERVICEPORT = 3000
 APP_TITLE = u"In-Matrix (IM)"
@@ -188,8 +188,8 @@ def load_history(room_alias):
     with gzip.open(path, 'rb') as hfile:
         return hfile.read().decode('utf-8')
 
-def store_history(room_id, content):
-    path = os.path.join(PATH_TO_HISTORY, room_id, 'allhistory')
+def store_history(room_alias, content):
+    path = os.path.join(PATH_TO_HISTORY, room_alias, 'allhistory')
     if not os.path.exists(path):
         os.makedirs(os.path.join(PATH_TO_HISTORY, room_id))
     with gzip.open(path, 'ab') as hfile:
@@ -252,68 +252,107 @@ def exec_cmd(cmd, data):
 
     return resp
 
-def parse_membership(event):
-    # TODO
-    pass
-
-def parse_msg(event):
+def process_membership(event):
     e = event
     etype = e[u"type"]
     screen = [screen for screen in app.screens if not screen.special and screen.room.room_id == e['room_id']][0]
-    if u'membership' in e:
-        content = e['content']
-        update_timeline(screen.timeline, "%s %s." % (
-            content[u'displayname'], {"leave": _("has left"), "join": _("has joined")}[content['membership']]
-            )
+    content = e['content']
+    update_timeline(screen.timeline, "%s %s." % (
+        content[u'displayname'], {"leave": _("has left"), "join": _("has joined")}[content['membership']]
         )
-    #if (e["user_id"] == app.user_id or e["content"]["msgtype"] == "m.notice"):
-    #    return
-    if etype == u'm.room.message':
-        if u'body' in e[u'content']:
-            update_timeline(screen.timeline, "[%s/%s] %s:\n%s" % (
-                e[u'age'],
-                datetime.datetime.fromtimestamp(int(e["origin_server_ts"] / 1000)).strftime('%d-%m-%Y %H:%M:%S'),
-                e[u'user_id'],
-                e[u'content'][u'body'])
-            )
-    elif etype == u'm.typing':
-        app.current_screen.notify(
-            ", ".join(
-                e[u'content'][u'user_ids'] or (_("You"),)) + _(" type(s) a message(s).")
-        )
-    elif etype == u'm.presence':
-        if u'displayname' in e[u'content']:
-            user_id, user_ids = e[u'content'][u'displayname'], app.current_screen.room.user_ids
-            if user_id not in user_ids:
-                user_ids.append(user_id)
-    else:
-        update_timeline(screen.timeline, unicode(e))
+    )
 
-def room_callback(event):
-    if event[u'type'] != 'm.typing':
-        open('common_log', 'w').write(pprint.pformat(event) + '\n\n\n')
+def process_msg(event):
     e = event
+    etype = e[u"type"]
+    screen = [screen for screen in app.screens if not screen.special and screen.room.room_id == e['room_id']][0]
+    if u'body' in e[u'content']:
+        update_timeline(screen.timeline, "[%s/%s] %s:\n%s" % (
+            e[u'age'],
+            datetime.datetime.fromtimestamp(int(e["origin_server_ts"] / 1000)).strftime('%d-%m-%Y %H:%M:%S'),
+            e[u'user_id'],
+            e[u'content'][u'body'])
+        )
+    else:
+        update_timeline(screen.timeline, pprint.pformat(unicode(e)))
+
+def process_topic(event):
+    e = event
+    etype = e[u"type"]
+    screen = [screen for screen in app.screens if not screen.special and screen.room.room_id == e['room_id']][0]
+    pass
+
+def process_name(event):
+    e = event
+    etype = e[u"type"]
+    screen = [screen for screen in app.screens if not screen.special and screen.room.room_id == e['room_id']][0]
+    pass
+
+def process_invite(event):
+    e = event
+    etype = e[u"type"]
+    screen = [screen for screen in app.screens if not screen.special and screen.room.room_id == e['room_id']][0]
+    pass
+
+def process_join(event):
+    e = event
+    etype = e[u"type"]
+    screen = [screen for screen in app.screens if not screen.special and screen.room.room_id == e['room_id']][0]
+    pass
+
+def process_leave(event):
+    e = event
+    etype = e[u"type"]
+    screen = [screen for screen in app.screens if not screen.special and screen.room.room_id == e['room_id']][0]
+    pass
+
+def process_ban(event):
+    e = event
+    etype = e[u"type"]
+    screen = [screen for screen in app.screens if not screen.special and screen.room.room_id == e['room_id']][0]
+    pass
+
+def process_typing(event):
+    app.current_screen.notify(
+        ", ".join(
+            e[u'content'][u'user_ids'] or (_("You"),)) + _(" type(s) a message(s).")
+    )
+
+def process_presence(event):
+    e = event
+    etype = e[u"type"]
+    if app.current_screen.special:
+            return
+    if u'displayname' in e[u'content']:
+        user_id, user_ids = e[u'content'][u'displayname'], app.current_screen.room.user_ids
+        if user_id not in user_ids:
+            user_ids.append(user_id)
+
+def process_events(event):
+    e = event
+    if event[u'type'] != 'm.typing':
+        open('common_log', 'a').write(pprint.pformat(e) + '\n\n\n')
     etype = e[u'type']
     switch = {
-        u"m.room.member"          : parse_membership,
-        u"m.room.message"         : parse_msg,
+        u"m.room.member"          : process_membership,
+        u"m.room.message"         : process_msg,
         u"m.room.message.feedback": lambda event: None,
-        u"m.room.topic"           : parse_msg,
-        u"m.room.name"            : parse_msg,
-        u"m.room.invite"          : parse_msg,
-        u"m.room.join"            : parse_msg,
-        u"m.room.leave"           : parse_msg,
-        u"m.room.ban"             : parse_msg,
-        u"m.typing"               : parse_msg,
+        u"m.room.topic"           : process_topic,
+        u"m.room.name"            : process_name,
+        u"m.room.invite"          : process_invite,
+        u"m.room.join"            : process_join,
+        u"m.room.leave"           : process_leave,
+        u"m.room.ban"             : process_ban,
+        u"m.typing"               : process_typing,
+        u"m.presence"             : process_presence,
     }
     try:
-        switch[etype]
+        processor = switch[etype]
     except KeyError, err:
-        print("room_callback", etype)
-    parse_msg(event)
+        print("Unprocessed event in `process_events`:", etype)
+    else:
+        processor(event)
 
-# TODO
-user_callback = lambda event: None
 
 ########################
 class PopupLabel(TextInput):
@@ -374,16 +413,16 @@ class Window(Screen):
             multiline=True,
             bold=True,
             background_color=SETTINGS['ui']['colors']['title-color']['bg'],
-            size_hint_y=platform('linux', 0.03, 0.1),
+            size_hint_y=platform('linux', 0.03, 0.03),
             readonly=True,
         )
         root.add_widget(self.title)
         self.infobar = PopupLabel(
             full_text_callback=lambda self: self.full_text,
             text=u". . .",
-            full_text=u"t\ne\ns\nt",
+            full_text=u". . .\n. . .",
             multiline=True,
-            size_hint_y=platform('linux', 0.03, 0.1),
+            size_hint_y=platform('linux', 0.03, 0.03),
             background_color=SETTINGS['ui']['colors']['infobar-color']['bg'],
             font_name=FONTS['infobar'],
         )
@@ -398,7 +437,7 @@ class Window(Screen):
         )
         timeline.bind(minimum_height=timeline.setter('height'))
         left_pane.add_widget(timeline)
-        self.right_pane = right_pane = GridLayout(cols=1, rows=2, size_hint_x=0.1)
+        self.right_pane = right_pane = GridLayout(cols=1, rows=2, size_hint_x=platform('android', 0, 0.1))
         right_pane.spacing = 0, 5
         rt_body = ScrollView(size_hint=(1, 0.7))
         self.members_list = members_list = GridLayout(
@@ -465,7 +504,7 @@ class Window(Screen):
         if full_message is not None:
             self.infobar.full_text = full_message
         else:
-            self.infobar.full_text = u""
+            self.infobar.full_text = message
 
 ############################
 class TextBuffer(TextInput):
@@ -610,7 +649,7 @@ class PublicRoomsList(Screen):
             multiline=True,
             bold=True,
             background_color=SETTINGS['ui']['colors']['title-color']['bg'],
-            size_hint_y=platform('linux', 0.03, 0.1),
+            size_hint_y=platform('linux', 0.03, 0.03),
             readonly=True,
         )
         root.add_widget(self.title)
@@ -618,7 +657,7 @@ class PublicRoomsList(Screen):
             full_text_callback=lambda self: self.text,
             text=u". . .",
             multiline=True,
-            size_hint_y=platform('linux', 0.03, 0.1),
+            size_hint_y=platform('linux', 0.03, 0.03),
             background_color=SETTINGS['ui']['colors']['infobar-color']['bg'],
             font_name=FONTS['infobar'],
         )
@@ -632,7 +671,7 @@ class PublicRoomsList(Screen):
             rooms_list = app.client.api.public_rooms()['chunk']
             rooms_list.sort(key=lambda i: i[u'num_joined_members'], reverse=True)
             if DEBUG:
-                rooms_list = rooms_list[:50]
+                rooms_list = rooms_list[:20]
             for room in rooms_list:
                 self.update_timeline("%s [%d member(s)]\n\n%s" % (
                     (room[u'name'] + " (" + room[u'aliases'][0] + ")") if room[u'name'] is not None else room[u'aliases'][0],
@@ -664,6 +703,7 @@ class PublicRoomsList(Screen):
                 + room_item.padding[1] + room_item.padding[3])
             room_item.to_room = room_alias
             self.timeline.add_widget(room_item)
+
     @staticmethod
     def _item_click(self, value):
         print(`self.to_room`)
@@ -701,14 +741,14 @@ class MatrixApp(App):
             for room in all_rooms:
                 window = Window(name=room)
                 window.room = root.client.join_room(room)
-                window.room.add_listener(room_callback)
+                #window.room.add_listener(process_events)
                 window.room.user_ids = []
                 root.add_widget(window)
                 net.update_room_details(window.room)
         except net.API.MatrixRequestError, err:
-            pass
+            raise err#sys.exit(err)
 
-        root.client.add_listener(user_callback)
+        root.client.add_listener(process_events)
         root.client.start_listener_thread()
         for screen in (screen for screen in root.screens if not screen.special):
             for scr in root.screens:
@@ -852,7 +892,7 @@ def global_keyboard_callback(key, scancode, codepoint, modifiers):
         if ['shift'] == modifiers:
             if key == 32:
                 if app.current == _("[Public rooms]"):
-                    global_keyboard_callback(281, scancode, codepoint, [])
+                    global_keyboard_callback(281, scancode, codepoint)
     elif key == 273:
         if app.current == _("[Public rooms]"):
             prlist = app.current_screen
@@ -887,12 +927,19 @@ def global_keyboard_callback(key, scancode, codepoint, modifiers):
             e.trigger_velocity_update()
     elif key == 32:
         if app.current == _("[Public rooms]"):
-            global_keyboard_callback(280, scancode, codepoint, [])
+            #global_keyboard_callback(280, scancode, codepoint)
+            if app.current == _("[Public rooms]"):
+                prlist = app.current_screen
+                m = sp(_Window.height)
+                e = prlist.root.effect_y
+                e.value = max(e.value - m, e.min)
+                e.velocity = 0
+                e.trigger_velocity_update()
     return True
 _Window.on_keyboard = global_keyboard_callback
 
 ##########################
 if __name__ == '__main__':
     app = MatrixApp().build()
-    app.client._sync(limit=100)
+    app.client._sync(limit=10)
     runTouchApp(app)

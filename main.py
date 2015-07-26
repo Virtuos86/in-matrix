@@ -15,6 +15,9 @@ APP_TITLE = u"In-Matrix (IM)"
 PATH_TO_HISTORY = u'./history'
 SETTINGS = {
     'ui': {
+        "language": [
+            "ru", "eng"
+        ],
         'colors': {
             'window-color': (1, 1, 1, 1),
         }
@@ -177,7 +180,7 @@ _Window.set_icon('./res/img/icon.png')
 
 def store_settings():
     with open('settings.json', 'w') as f:
-        json.dump(SETTINGS)
+        json.dump(f, SETTINGS)
     return True
 
 def load_history(room_alias):
@@ -321,12 +324,28 @@ def process_typing(event):
 def process_presence(event):
     e = event
     etype = e[u"type"]
-    if app.current_screen.special:
+    current_screen = app.current_screen
+    if current_screen.special:
             return
     if u'displayname' in e[u'content']:
-        user_id, user_ids = e[u'content'][u'displayname'], app.current_screen.room.user_ids
-        if user_id not in user_ids:
-            user_ids.append(user_id)
+        user_id, user_ids = e[u'content'][u'displayname'], current_screen.room.user_ids
+        members_list = current_screen.members_list
+        if e[u'content'][u'presence'] == u'online':
+            if user_id not in user_ids:
+                current_screen.room.user_ids.append(user_id)
+                mbr_item = TextInput(
+                    text=user_id,
+                    size_hint_y=None,
+                    height=20,
+                    background_color=choice(COLORS) if SETTINGS['ui']['flags']['enable-item-random-color'] else (1, 1, 1, 1),
+                    readonly=True
+                )
+                mbr_item.size = members_list.size[0], mbr_item.line_height + mbr_item.line_spacing + mbr_item.padding[1] + mbr_item.padding[3]
+                members_list.add_widget(mbr_item)
+        elif e[u'content'][u'presence'] in (u'offline', u'unavailable'):
+                app.current_screen.room.user_ids.remove(user_id)
+                mbr_item = [i for i in members_list if i.text == user_id][0]
+                members_list.remove_widget(mbr_item)
 
 def process_events(event):
     e = event
@@ -662,7 +681,7 @@ class PublicRoomsList(Screen):
             font_name=FONTS['infobar'],
         )
         root.add_widget(self.infobar)
-        scrollview = ScrollView()
+        self.scrollview = scrollview = ScrollView()
         root.add_widget(scrollview)
         self.timeline = timeline = GridLayout(cols=1, size_hint_y=None)
         timeline.bind(minimum_height=timeline.setter('height'))
@@ -734,22 +753,30 @@ class MatrixApp(App):
         root.default_room_alias = matrix['default_room_alias']
         root.server = matrix['server']
         root.predefined_rooms = matrix['predefined_rooms']
+        all_rooms = [root.default_room_alias] + root.predefined_rooms
         try:
-            all_rooms = [root.default_room_alias] + root.predefined_rooms
             root.client, root.access_token = net.sign_in_matrix(root.server, root.user_id, root.password)
             root.add_widget(PublicRoomsList(app=root))
-            for room in all_rooms:
-                window = Window(name=room)
+        except net.API.MatrixRequestError, err:
+            pass#raise err#sys.exit(err)
+        for room in all_rooms:
+            window = Window(name=room)
+            try:
                 window.room = root.client.join_room(room)
                 #window.room.add_listener(process_events)
                 window.room.user_ids = []
-                root.add_widget(window)
+            except net.API.MatrixRequestError, err:
+                pass#raise err#sys.exit(err)
+            root.add_widget(window)
+            try:
                 net.update_room_details(window.room)
+            except net.API.MatrixRequestError, err:
+                pass#raise err#sys.exit(err)
+        try:
+            root.client.add_listener(process_events)
+            root.client.start_listener_thread()
         except net.API.MatrixRequestError, err:
-            raise err#sys.exit(err)
-
-        root.client.add_listener(process_events)
-        root.client.start_listener_thread()
+            pass#raise err#sys.exit(err)
         for screen in (screen for screen in root.screens if not screen.special):
             for scr in root.screens:
                 rm_item = TextInput(text=scr.name, size_hint_y=None, height=20, background_color=(1, 1, 1, 1), readonly=True)
@@ -892,47 +919,51 @@ def global_keyboard_callback(key, scancode, codepoint, modifiers):
         if ['shift'] == modifiers:
             if key == 32:
                 if app.current == _("[Public rooms]"):
-                    global_keyboard_callback(281, scancode, codepoint)
+                    prlist = app.current_screen.scrollview
+                    m = sp(_Window.height)
+                    e = prlist.effect_y
+                    e.value = max(e.value - m, e.min)
+                    e.velocity = 0
+                    e.trigger_velocity_update()
     elif key == 273:
         if app.current == _("[Public rooms]"):
-            prlist = app.current_screen
-            m = sp(prlist.root.scroll_wheel_distance)
-            e = prlist.root.effect_y
+            prlist = app.current_screen.scrollview
+            m = sp(prlist.scroll_wheel_distance)
+            e = prlist.effect_y
             e.value = max(e.value - m, e.min)
             e.velocity = 0
             e.trigger_velocity_update()
     elif key == 274:
         if app.current == _("[Public rooms]"):
-            prlist = app.current_screen
-            m = sp(prlist.root.scroll_wheel_distance)
-            e = prlist.root.effect_y
+            prlist = app.current_screen.scrollview
+            m = sp(prlist.scroll_wheel_distance)
+            e = prlist.effect_y
             e.value = min(e.value + m, e.max)
             e.velocity = 0
             e.trigger_velocity_update()
     elif key == 280:
         if app.current == _("[Public rooms]"):
-            prlist = app.current_screen
+            prlist = app.current_screen.scrollview
             m = sp(_Window.height)
-            e = prlist.root.effect_y
+            e = prlist.effect_y
             e.value = max(e.value - m, e.min)
             e.velocity = 0
             e.trigger_velocity_update()
     elif key == 281:
         if app.current == _("[Public rooms]"):
-            prlist = app.current_screen
+            prlist = app.current_screen.scrollview
             m = sp(_Window.height)
-            e = prlist.root.effect_y
+            e = prlist.effect_y
             e.value = min(e.value + m, e.max)
             e.velocity = 0
             e.trigger_velocity_update()
     elif key == 32:
         if app.current == _("[Public rooms]"):
-            #global_keyboard_callback(280, scancode, codepoint)
             if app.current == _("[Public rooms]"):
-                prlist = app.current_screen
+                prlist = app.current_screen.scrollview
                 m = sp(_Window.height)
-                e = prlist.root.effect_y
-                e.value = max(e.value - m, e.min)
+                e = prlist.effect_y
+                e.value = min(e.value + m, e.max)
                 e.velocity = 0
                 e.trigger_velocity_update()
     return True
@@ -942,4 +973,6 @@ _Window.on_keyboard = global_keyboard_callback
 if __name__ == '__main__':
     app = MatrixApp().build()
     app.client._sync(limit=10)
+    for screen in (screen for screen in app.screens if not screen.special):
+        print(screen.room.events)
     runTouchApp(app)
